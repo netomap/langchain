@@ -51,3 +51,47 @@ Pense no LangChain como um **"orquestrador"** que permite conectar LLMs a outras
 Em resumo, LangChain é um framework poderoso que democratiza o desenvolvimento de aplicações com LLMs, fornecendo uma estrutura robusta para conectar, orquestrar e gerenciar a interação entre modelos de linguagem, dados e ferramentas externas. Ele permite que desenvolvedores passem de "apenas usar um LLM" para "construir sistemas inteligentes que utilizam LLMs".
 
 
+
+## [Lang2.py](lang2.py)
+
+- No script lang2.py, temos uma análise de como retirar entidades de texto. Podemos enviar um texto, naturalmente não estruturado, e solicitamos que a LLM (no caso estamos usando Gemini) retire as entidades. 
+
+- Uma forma prática de fazer isso é usando a biblioteca pydantic, onde criamos uma classe que herda BaseModel que descreve a entidade que você quer retirar dos textos:  
+```
+# Aqui definimos a estrutura dos das entidades que queremos receber como resposta
+class Resposta_Estruturada(BaseModel):
+    operacao: str = Field(description="Operação de venda ou compra da transação", examples=["Venda", "Compra"])
+    produto: str = Field(description="Descrição do produto da transação")
+    quantidade: int = Field(description="Quantidade do item negociado na transação")
+    valor_total: float = Field(description="Valor, em reais, do total da transação")
+```
+
+- Depois informamos ao modelo que queremos uma resposta baseada na estrutura que passamos. Importante notar que a descrição de cada item precisa estar bem descrita, para o modelo tirar suas conclusões.  
+```
+model_structured = model.with_structured_output(Resposta_Estruturada)
+```
+
+- Criamos nossa cadeia simples: ```chain = template | model_structure```
+
+- Os resultados são bem interessantes, para frases bem simples e aleatórias:
+
+- 1ª frase:
+```
+O estoque que tinha 18 tablets acabou hoje. vendemos tudo por 50 reais cada
+{'operacao': 'venda', 'produto': 'tablet', 'quantidade': 18, 'valor_total': 900.0}
+```
+- 2ª frase:
+```
+Ana comprou 4 abacates para a festa de hoje. reclamou que deu 34 reais.. tá muito caro
+{'operacao': 'compra', 'produto': 'abacates', 'quantidade': 4, 'valor_total': 34.0}
+```
+- 3ª frase: Interessante notar que mesmo informando que só existem operações de compra e venda, ele pegou "financiamento". Está errado mas é facilmente corrigido.
+```
+ele financiou o carro dele por 75k.
+{'operacao': 'financiamento', 'produto': 'carro', 'quantidade': 1, 'valor_total': 75000.0}
+```
+- 4ª frase: uma frase totalmente indefinida, o modelo não conseguiu captar o produto e retornou um "unknown".
+```
+Sei lá por quanto ele vendeu isso.. já faz um tempo né
+{'operacao': 'venda', 'produto': 'unknown', 'quantidade': 0, 'valor_total': 0.0}
+```
