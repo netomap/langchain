@@ -95,3 +95,43 @@ ele financiou o carro dele por 75k.
 Sei lá por quanto ele vendeu isso.. já faz um tempo né
 {'operacao': 'venda', 'produto': 'unknown', 'quantidade': 0, 'valor_total': 0.0}
 ```
+
+## [Lang3.py](lang3.py)
+
+- Muito interessante essa abordagem. Para criar um agente que consulta uma base de dados, você tem o trabalho de somente apresentar a base de dados para o modelo e fazer a pergunta. Depois o modelo vai explorando todas as tabelas, colunas e conteúdos para criar a query ideal, executá-la e trazer as informações quando possível. 
+- Interessante perceber que aqui, neste documento lang3.py, vamos apenas fazer consultas. Não vamos fazer update, create ou delete. Para estes casos, vamos trabalhar usando tools, pois assim vamos criar funções bem robustas para que o modelo não faça nenhuma consulta do tipo "delete from table" e deletar tudo, certo? 
+- Assim, vamos criar funções robustas que evitem quaisquer erros grosseiros que possam vir das sugestões do model.
+
+- Mas por enquanto, vamos focar apenas nas consultas de "descoberta" dos dados. Primeiro devemos informar qual é o banco de dados:
+```
+db = SQLDatabase.from_uri(
+    f"postgresql+psycopg2://postgres:{pg_pass}@localhost:{pg_port}/langchainteste"
+)
+```
+
+- Criamos o modelo: ``` model = ChatGoogleGenerativeAI(model="gemini-flash-latest", temperature=0) ```
+
+- E criamos o agente: 
+```
+agent = create_sql_agent(
+    llm = model,
+    db = db,
+    agent_type = "openai-tools",
+    verbose = True
+)
+```
+
+- Os resultados são muito bons. Se não quiser ver os raciocínios, basta fazer: ```verbose = False```. 
+- Antes disso, foi criado uma tabela numa base de dados no postgres. A tabela foi chamada de usuários e tinha algumas colunas como nome, email e idade. 
+- A primeira pergunta foi: "quantos funcionários tem por cada equipe?".  
+![figura1](assets/figura1.png)
+
+- Segunda pergunta: "liste funcionários menores de idade"
+![figura2](assets/figura2.png)
+- Olha que legal, dependendo da entonação da chamada, tipo pergunta ou uma ordem, o tipo de resposta vem diferente. Quando perguntamos vem um dicionário com "input" e "output" de chaves. Quanto ordenamos (liste, enumere...) vem um dicionário com as chaves "type" e "text". **tem que ter um tratamento das respostas bem rigoroso**
+
+- Terceira pergunta: "quem são os funcionários menores de idade?" A mesma solicitação anterior, agora no tom de pergunta.
+![figura3](assets/figura3.png)
+
+- Quarta pergunta: "qual a quantidade de carros comprados com a cor branca?" Uma pergunta sem sentido nenhum para a base de dados. E o modelo tem uma resposta curta e grossa.
+![figura4](assets/figura4.png)
